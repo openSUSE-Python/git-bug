@@ -144,30 +144,7 @@ func (am *AuthorMapping) PromptAndAddMapping(userID string, displayName string) 
 func (am *AuthorMapping) SaveToFile() error
 ```
 
-**File**: `bridge/core/bridge.go`
-
-1. Update `Bridge.ExportAll()` to accept impersonation and mapping parameters
-2. Add new method `ExportAllWithImpersonation()` that forwards the flags to exporters
-
-### Phase 2.1: Author Mapping Infrastructure
-
-**File**: `bridge/core/author_mapping.go` (new file)
-
-1. Create author mapping parser and resolver:
-```go
-type AuthorMapping struct {
-    mappings map[string]string // userID -> Full Name <email@address>
-    filePath string
-}
-
-func LoadAuthorMapping(filePath string) (*AuthorMapping, error)
-func (am *AuthorMapping) ResolveAuthor(userID string) (string, bool)
-func (am *AuthorMapping) ParseLine(line string) (userID, fullName string, err error)
-func (am *AuthorMapping) PromptAndAddMapping(userID string, displayName string) (string, error)
-func (am *AuthorMapping) SaveToFile() error
-```
-
-#### 2.2 Interactive Mapping Resolution
+#### 2.3 Interactive Mapping Resolution
 
 **File**: `bridge/core/author_mapping.go`
 
@@ -397,38 +374,45 @@ This would allow `git bug bridge pull` to treat these as read-only and never ove
 
 ## Key Technical Challenges
 
-### 1. Client Resolution
+### 1. Refactoring Complexity
+- Maintaining existing behavior while extracting shared code
+- Generic type handling for different client types (GitHub vs GitLab vs JIRA)
+- Ensuring platform-specific logic remains properly isolated
+- Managing dependencies between refactored components
+
+### 2. Client Resolution
 - Ensuring current user has valid credentials for the target platform
 - Handling cases where current user has no platform-specific credentials
 - Fallback strategies for different authentication scenarios
+- Generic client resolver that works with different API client types
 
-### 2. Author Mapping Management
+### 3. Author Mapping Management
 - Interactive prompting for missing user mappings
 - File I/O operations for persistent mapping storage
 - Handling concurrent access to mapping files
 - Validation of mapping format and email addresses
 
-### 3. Migration Header Integration
+### 4. Migration Header Integration
 - Identifying and modifying the first comment (bug description)
 - Preserving original content while adding migration metadata
 - Handling different comment structures across platforms
 - Ensuring headers are only added once per bug
 
-### 4. Error Handling
+### 5. Error Handling
 - Graceful degradation when impersonation is requested but current user lacks credentials
 - Clear error messages for users about missing credentials
 - Maintaining operation integrity during partial failures
 - Handling user input errors during interactive mapping
 
-### 5. Metadata Consistency
+### 6. Metadata Consistency
 - Maintaining existing metadata structure while enabling impersonation
 - Preserving original author information in local storage
 - Ensuring remote platform audit trails remain accurate
 
-### 6. Backward Compatibility
+### 7. Backward Compatibility
 - Ensuring existing functionality unchanged when flag is not used
 - Maintaining current security model as default behavior
-- Preserving existing API contracts
+- Preserving existing API contracts during refactoring
 
 ## Security Considerations
 
@@ -576,7 +560,7 @@ When database schema changes are possible:
 
 ## Conclusion
 
-This plan provides a comprehensive approach to implementing author impersonation with user identity mapping and migration header insertion while maintaining the integrity and security of the existing bridge system. The intentionally obnoxious flag name serves as a clear warning about the implications of this functionality.
+This plan provides a comprehensive approach to implementing author impersonation with user identity mapping and migration header insertion while maintaining the integrity and security of the existing bridge system. The plan includes significant refactoring opportunities that will eliminate 60-70% of duplicate code across bridge implementations.
 
 The implementation prioritizes:
 - **Security**: Maintaining audit trail integrity
@@ -585,5 +569,16 @@ The implementation prioritizes:
 - **Flexibility**: Supporting future enhancements like tainting
 - **Usability**: Interactive mapping resolution and persistent storage
 - **Traceability**: Migration headers preserving original issue metadata
+- **Maintainability**: Shared core components reducing code duplication
+- **Extensibility**: Generic patterns enabling easier addition of new bridges
+
+## Refactoring Benefits
+
+The proposed refactoring will:
+1. **Reduce Code Duplication**: Eliminate ~60-70% of duplicate code across GitHub, GitLab, and JIRA bridges
+2. **Improve Maintainability**: Centralize common logic in `bridge/core` components
+3. **Enable Consistency**: Ensure all bridges handle impersonation and mapping uniformly
+4. **Simplify Testing**: Test core logic once instead of three times
+5. **Facilitate Future Bridges**: New bridges can leverage existing shared components
 
 The modular approach allows for incremental implementation and testing while minimizing risk to existing functionality. The interactive author mapping feature ensures smooth user experience without requiring manual file editing for missing mappings.
